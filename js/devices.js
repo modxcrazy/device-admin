@@ -1,188 +1,290 @@
-// DOM elements
-const devicesContainer = document.getElementById('devicesContainer');
-const commandSelect = document.getElementById('commandSelect');
-const passwordField = document.getElementById('passwordField');
-const passwordInput = document.getElementById('passwordInput');
-const sendCommandBtn = document.getElementById('sendCommandBtn');
+import { db } from './dashboard.js';
 
-// Track selected device
-let selectedDeviceId = null;
+// DOM Elements
+const devicesTableBody = document.getElementById('devicesTableBody');
+const searchInput = document.getElementById('searchInput');
+const searchBtn = document.getElementById('searchBtn');
+const deviceDetailsModal = new bootstrap.Modal(document.getElementById('deviceDetailsModal'));
 
-// Show/hide password field based on command
-commandSelect.addEventListener('change', (e) => {
-    passwordField.style.display = e.target.value === 'reset_password' ? 'block' : 'none';
-});
+// Device data cache
+let devicesCache = [];
+let currentPage = 1;
+const devicesPerPage = 10;
 
-// Load devices
+// Initialize devices module
+export function initDevices() {
+    loadDevices();
+    setupEventListeners();
+}
+
 function loadDevices() {
-    devicesContainer.innerHTML = '<div class="col-12 text-center"><div class="spinner-border text-primary"></div></div>';
+    devicesTableBody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </td>
+        </tr>`;
     
-    db.collection('devices').get().then((querySnapshot) => {
-        devicesContainer.innerHTML = '';
-        
-        if (querySnapshot.empty) {
-            devicesContainer.innerHTML = '<div class="col-12 text-center text-muted">No devices registered</div>';
-            return;
-        }
-        
-        querySnapshot.forEach((doc) => {
-            const device = doc.data();
-            createDeviceCard(doc.id, device);
+    db.collection('devices').get()
+        .then(snapshot => {
+            devicesCache = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            renderDevicesTable();
+            setupPagination();
+        })
+        .catch(error => {
+            console.error("Error loading devices:", error);
+            devicesTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-danger">
+                        Failed to load devices. Please try again.
+                    </td>
+                </tr>`;
         });
-    }).catch((error) => {
-        console.error("Error loading devices: ", error);
-        devicesContainer.innerHTML = '<div class="col-12 text-center text-danger">Error loading devices</div>';
+}
+
+function renderDevicesTable(filteredDevices = null) {
+    const devicesToRender = filteredDevices || devicesCache;
+    const startIndex = (currentPage - 1) * devicesPerPage;
+    const endIndex = startIndex + devicesPerPage;
+    const paginatedDevices = devicesToRender.slice(startIndex, endIndex);
+    
+    if (paginatedDevices.length === 0) {
+        devicesTableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center text-muted">
+                    No devices found
+                </td>
+            </tr>`;
+        return;
+    }
+    
+    devicesTableBody.innerHTML = paginatedDevices.map(device => `
+        <tr data-device-id="${device.id}">
+            <td>${device.id.substring(0, 8)}...</td>
+            <td>${device.deviceName || 'Unnamed Device'}</td>
+            <td>
+                <span class="badge badge-status ${getStatusClass(device.lastActive)}">
+                    ${getStatusText(device.lastActive)}
+                </span>
+            </td>
+            <td>${formatDate(device.lastActive)}</td>
+            <td>
+                <i class="bi ${device.adminActive ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary view-details">
+                    <i class="bi bi-eye"></i> View
+                </button>
+                <button class="btn btn-sm btn-outline-secondary send-command">
+                    <i class="bi bi-send"></i> Command
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // Add event listeners to buttons
+    document.querySelectorAll('.view-details').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const deviceId = e.target.closest('tr').getAttribute('data-device-id');
+            showDeviceDetails(deviceId);
+        });
+    });
+    
+    document.querySelectorAll('.send-command').forEach(btn => {
+        btn.addEventListener('click', e => {
+            const deviceId = e.target.closest('tr').getAttribute('data-device-id');
+            // Implement command sending logic
+        });
     });
 }
 
-// Create device card
-function createDeviceCard(deviceId, device) {
-    const card = document.createElement('div');
-    card.className = 'col-md-4 mb-4';
-    card.innerHTML = `
-        <div class="card device-card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-phone"></i> ${device.deviceName || 'Unknown Device'}
-                </h5>
-            </div>
-            <div class="card-body">
-                <p class="card-text">
-                    <small class="text-muted">ID: ${deviceId}</small><br>
-                    <small class="text-muted">Last Active: ${formatDate(device.lastActive)}</small>
-                </p>
-                <button class="btn btn-sm btn-outline-primary command-btn" data-command="lock_device">
-                    <i class="bi bi-lock"></i> Lock Device
-                </button>
-                <button class="btn btn-sm btn-outline-danger command-btn" data-command="disable_camera">
-                    <i class="bi bi-camera-off"></i> Disable Camera
-                </button>
-                <button class="btn btn-sm btn-outline-success command-btn" data-command="enable_camera">
-                    <i class="bi bi-camera"></i> Enable Camera
-                </button>
-                <button class="btn btn-sm btn-outline-warning command-btn" data-command="reset_password">
-                    <i class="bi bi-key"></i> Reset Password
-                </button>
-            </div>
-            <div class="card-footer bg-light">
-                <button class="btn btn-sm btn-info view-details" data-device-id="${deviceId}">
-                    <i class="bi bi-info-circle"></i> Details
-                </button>
-            </div>
-        </div>
+function setupPagination() {
+    const totalPages = Math.ceil(devicesCache.length / devicesPerPage);
+    const pagination = document.getElementById('pagination');
+    
+    pagination.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+    
+    // Previous button
+    pagination.innerHTML += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
+        </li>`;
+    
+    // Page numbers
+    for (let i = 1; i <= totalPages; i++) {
+        pagination.innerHTML += `
+            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" data-page="${i}">${i}</a>
+            </li>`;
+    }
+    
+    // Next button
+    pagination.innerHTML += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
+        </li>`;
+    
+    // Add event listeners
+    document.querySelectorAll('.page-link').forEach(link => {
+        link.addEventListener('click', e => {
+            e.preventDefault();
+            currentPage = parseInt(e.target.getAttribute('data-page'));
+            renderDevicesTable();
+        });
+    });
+}
+
+function showDeviceDetails(deviceId) {
+    const device = devicesCache.find(d => d.id === deviceId);
+    if (!device) return;
+    
+    // Basic info
+    document.getElementById('basicInfoTable').innerHTML = `
+        <tr>
+            <th>Device ID</th>
+            <td>${device.id}</td>
+        </tr>
+        <tr>
+            <th>Device Name</th>
+            <td>${device.deviceName || 'Not specified'}</td>
+        </tr>
+        <tr>
+            <th>Model</th>
+            <td>${device.deviceModel || 'Unknown'}</td>
+        </tr>
+        <tr>
+            <th>OS Version</th>
+            <td>${device.osVersion || 'Unknown'}</td>
+        </tr>
+        <tr>
+            <th>Last Active</th>
+            <td>${formatDate(device.lastActive)}</td>
+        </tr>
     `;
     
-    devicesContainer.appendChild(card);
+    // Security status
+    document.getElementById('securityStatusTable').innerHTML = `
+        <tr>
+            <th>Admin Active</th>
+            <td>
+                <i class="bi ${device.adminActive ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i>
+                ${device.adminActive ? 'Yes' : 'No'}
+            </td>
+        </tr>
+        <tr>
+            <th>Camera Status</th>
+            <td>
+                <i class="bi ${device.cameraDisabled ? 'bi-camera-off text-danger' : 'bi-camera text-success'}"></i>
+                ${device.cameraDisabled ? 'Disabled' : 'Enabled'}
+            </td>
+        </tr>
+        <tr>
+            <th>Password Set</th>
+            <td>
+                <i class="bi ${device.passwordSet ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i>
+                ${device.passwordSet ? 'Yes' : 'No'}
+            </td>
+        </tr>
+    `;
     
-    // Add event listeners to command buttons
-    card.querySelectorAll('.command-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const command = e.target.getAttribute('data-command');
-            sendCommandToDevice(deviceId, command);
-        });
-    });
+    // Recent commands
+    loadDeviceCommands(deviceId);
     
-    // Add event listener to details button
-    card.querySelector('.view-details').addEventListener('click', (e) => {
-        showDeviceDetails(deviceId, device);
-    });
+    // Show modal
+    deviceDetailsModal.show();
 }
 
-// Format date
+function loadDeviceCommands(deviceId) {
+    const tableBody = document.getElementById('recentCommandsTable');
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="3" class="text-center">
+                <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </td>
+        </tr>`;
+    
+    db.collection('commands')
+        .where('deviceId', '==', deviceId)
+        .orderBy('timestamp', 'desc')
+        .limit(5)
+        .get()
+        .then(snapshot => {
+            if (snapshot.empty) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center text-muted">
+                            No commands found
+                        </td>
+                    </tr>`;
+                return;
+            }
+            
+            tableBody.innerHTML = snapshot.docs.map(doc => {
+                const cmd = doc.data();
+                return `
+                    <tr>
+                        <td>${formatTime(cmd.timestamp.toDate())}</td>
+                        <td>${cmd.command}</td>
+                        <td>
+                            <span class="badge ${getCommandStatusClass(cmd.status)}">
+                                ${cmd.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        })
+        .catch(error => {
+            console.error("Error loading commands:", error);
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center text-danger">
+                        Failed to load commands
+                    </td>
+                </tr>`;
+        });
+}
+
+// Helper functions
+function getStatusClass(lastActive) {
+    if (!lastActive) return 'badge-inactive';
+    const hoursAgo = (new Date() - lastActive.toDate()) / (1000 * 60 * 60);
+    return hoursAgo < 24 ? 'badge-active' : hoursAgo < 72 ? 'badge-pending' : 'badge-inactive';
+}
+
+function getStatusText(lastActive) {
+    if (!lastActive) return 'Inactive';
+    const hoursAgo = (new Date() - lastActive.toDate()) / (1000 * 60 * 60);
+    return hoursAgo < 24 ? 'Active' : hoursAgo < 72 ? 'Inactive' : 'Offline';
+}
+
 function formatDate(timestamp) {
     if (!timestamp) return 'Never';
-    const date = timestamp.toDate();
-    return date.toLocaleString();
+    return timestamp.toDate().toLocaleString();
 }
 
-// Send command to device
-function sendCommandToDevice(deviceId, command, additionalData = {}) {
-    const sendCommand = functions.httpsCallable('sendCommandToDevice');
-    
-    let data = { deviceId, command };
-    
-    if (command === 'reset_password' && additionalData.password) {
-        data.password = additionalData.password;
+function formatTime(date) {
+    return date.toLocaleTimeString();
+}
+
+function getCommandStatusClass(status) {
+    switch (status.toLowerCase()) {
+        case 'completed': return 'bg-success';
+        case 'failed': return 'bg-danger';
+        case 'pending': return 'bg-warning';
+        default: return 'bg-secondary';
     }
-    
-    sendCommand(data).then((result) => {
-        alert(`Command sent successfully to device ${deviceId}`);
-    }).catch((error) => {
-        console.error("Error sending command: ", error);
-        alert(`Failed to send command: ${error.message}`);
-    });
 }
 
-// Show device details
-function showDeviceDetails(deviceId, device) {
-    const modalContent = document.getElementById('deviceDetailsContent');
-    modalContent.innerHTML = `
-        <h6>Device Information</h6>
-        <table class="table table-sm">
-            <tr>
-                <th>Device ID</th>
-                <td>${deviceId}</td>
-            </tr>
-            <tr>
-                <th>Device Name</th>
-                <td>${device.deviceName || 'Not specified'}</td>
-            </tr>
-            <tr>
-                <th>Model</th>
-                <td>${device.deviceModel || 'Unknown'}</td>
-            </tr>
-            <tr>
-                <th>OS Version</th>
-                <td>${device.osVersion || 'Unknown'}</td>
-            </tr>
-            <tr>
-                <th>Last Active</th>
-                <td>${formatDate(device.lastActive)}</td>
-            </tr>
-        </table>
-        
-        <h6 class="mt-4">Device Status</h6>
-        <table class="table table-sm">
-            <tr>
-                <th>Camera Status</th>
-                <td>${device.cameraDisabled ? 'Disabled' : 'Enabled'}</td>
-            </tr>
-            <tr>
-                <th>Admin Active</th>
-                <td>${device.adminActive ? 'Yes' : 'No'}</td>
-            </tr>
-        </table>
-    `;
-    
-    const modal = new bootstrap.Modal(document.getElementById('deviceDetailsModal'));
-    modal.show();
-}
-
-// Send command to all devices
-sendCommandBtn.addEventListener('click', () => {
-    const command = commandSelect.value;
-    let additionalData = {};
-    
-    if (command === 'reset_password') {
-        if (!passwordInput.value) {
-            alert('Please enter a password');
-            return;
-        }
-        additionalData.password = passwordInput.value;
-    }
-    
-    const sendCommand = functions.httpsCallable('sendCommandToAllDevices');
-    
-    sendCommand({ command, ...additionalData }).then((result) => {
-        alert(`Command sent successfully to all devices`);
-        bootstrap.Modal.getInstance(document.getElementById('sendCommandModal')).hide();
-    }).catch((error) => {
-        console.error("Error sending command: ", error);
-        alert(`Failed to send command: ${error.message}`);
-    });
-});
-
-// Initialize
-document.addEventListener('DOMContentLoaded', () => {
-    loadDevices();
-});
+// Initialize devices module when DOM is loaded
+document.addEventListener('DOMContentLoaded', initDevices);
