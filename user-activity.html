@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Activity Monitoring</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/activity.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar (same as previous examples) -->
+        <!-- ... -->
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header>
+                <h1>User Activity Monitoring</h1>
+                <div class="date-range-picker">
+                    <input type="text" id="dateRange" placeholder="Select date range">
+                    <button id="applyDateFilter"><i class="fas fa-filter"></i> Apply</button>
+                </div>
+            </header>
+
+            <!-- Summary Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon bg-primary">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Usage</h3>
+                        <p id="totalUsage">0h 0m</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon bg-danger">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Permission Denials</h3>
+                        <p id="totalDenials">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon bg-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Restricted Access</h3>
+                        <p id="restrictedAccess">0 apps</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="usage">Usage Statistics</button>
+                <button class="tab-btn" data-tab="permissions">Permission Denials</button>
+                <button class="tab-btn" data-tab="restrictions">Access Restrictions</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content active" id="usageTab">
+                <div class="chart-container">
+                    <canvas id="usageChart"></canvas>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>App Name</th>
+                                <th>Usage Time</th>
+                                <th>Last Used</th>
+                                <th>Usage Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usageTableBody">
+                            <!-- Data will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-content" id="permissionsTab">
+                <div class="chart-container">
+                    <canvas id="denialsChart"></canvas>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Permission</th>
+                                <th>Denial Count</th>
+                                <th>Last Denied</th>
+                                <th>Requested By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="denialsTableBody">
+                            <!-- Data will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-content" id="restrictionsTab">
+                <div class="filter-bar">
+                    <select id="restrictionFilter">
+                        <option value="all">All Restrictions</option>
+                        <option value="location">Location</option>
+                        <option value="camera">Camera</option>
+                        <option value="storage">Storage</option>
+                    </select>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>App Name</th>
+                                <th>Restricted Permission</th>
+                                <th>First Restricted</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="restrictionsTableBody">
+                            <!-- Data will be populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="js/firebase.js"></script>
+    <script src="js/user-activity.js"></script>
+</body>
+</html>
