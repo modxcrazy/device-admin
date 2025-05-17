@@ -3,22 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring Dashboard - Login</title>
+    <title>Admin Dashboard | Device Monitor</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="login-container">
-        <h1>Admin Dashboard</h1>
-        <form id="loginForm">
-            <input type="email" id="email" placeholder="Admin Email" required>
-            <input type="password" id="password" placeholder="Password" required>
-            <button type="submit">Login</button>
-        </form>
-        <div id="loginError" class="error-message"></div>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-shield-alt"></i>
+                <span>DeviceMonitor</span>
+            </div>
+            <nav>
+                <ul>
+                    <li class="active"><a href="index.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li><a href="devices.html"><i class="fas fa-mobile-alt"></i> Devices</a></li>
+                    <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                    <li><a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header>
+                <h1>Dashboard Overview</h1>
+                <div class="user-profile">
+                    <img src="images/admin-avatar.jpg" alt="Admin">
+                    <span>Admin User</span>
+                </div>
+            </header>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card total-devices">
+                    <div class="stat-icon">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Total Devices</h3>
+                        <p id="totalDevices">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card active-devices">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Active Devices</h3>
+                        <p id="activeDevices">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card locked-devices">
+                    <div class="stat-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Locked Devices</h3>
+                        <p id="lockedDevices">0</p>
+                    </div>
+                </div>
+
+                <div class="stat-card inactive-devices">
+                    <div class="stat-icon">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>Inactive Devices</h3>
+                        <p id="inactiveDevices">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="activity-section">
+                <h2>Recent Activity</h2>
+                <div class="activity-list" id="activityList">
+                    <!-- Activities will be added dynamically -->
+                </div>
+            </div>
+
+            <!-- Device Locations Map -->
+            <div class="map-section">
+                <h2>Device Locations</h2>
+                <div id="devicesMap" class="devices-map"></div>
+            </div>
+        </div>
     </div>
+
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.js"></script>
     <script src="js/firebase.js"></script>
-    <script src="js/auth.js"></script>
+    <script src="js/dashboard.js"></script>
 </body>
 </html>
