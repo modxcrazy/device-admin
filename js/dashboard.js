@@ -1,140 +1,64 @@
-// Initialize Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyB306yl-qAYoSYVHP3LAby-aNiftH9OkpI",
-    authDomain: "devicead-992ca.firebaseapp.com",
-    projectId: "devicead-992ca",
-    storageBucket: "devicead-992ca.firebasestorage.app",
-    messagingSenderId: "160209495227",
-    appId: "1:160209495227:web:1d68b034fedddffd43759e",
-    measurementId: "G-CSCNLM5PL2"
-};
-
-// Initialize Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-const functions = firebase.functions();
-
-// DOM Elements
-const logoutLink = document.getElementById('logoutLink');
-const userName = document.getElementById('userName');
-const totalDevices = document.getElementById('totalDevices');
-const activeDevices = document.getElementById('activeDevices');
-const pendingCommands = document.getElementById('pendingCommands');
-const securityAlerts = document.getElementById('securityAlerts');
-const refreshBtn = document.getElementById('refreshBtn');
-
-// Initialize dashboard
-document.addEventListener('DOMContentLoaded', () => {
-    // Check auth state
-    auth.onAuthStateChanged(user => {
-        if (!user) {
-            window.location.href = 'login.html';
-        } else {
-            // Load user data
-            loadUserData(user);
-            
-            // Load dashboard stats
-            loadDashboardStats();
-            
-            // Load devices
-            loadDevices();
-            
-            // Set up event listeners
-            setupEventListeners();
-        }
-    });
+// Initialize Mapbox
+mapboxgl.accessToken = 'YOUR_MAPBOX_TOKEN';
+const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/streets-v11',
+    center: [0, 0],
+    zoom: 1
 });
 
-function loadUserData(user) {
-    // Display user name
-    userName.textContent = user.displayName || user.email.split('@')[0];
-    
-    // Load user profile data from Firestore
-    db.collection('users').doc(user.uid).get()
-        .then(doc => {
-            if (doc.exists) {
-                const userData = doc.data();
-                // Update UI with additional user data if needed
-            }
-        })
-        .catch(error => {
-            console.error("Error loading user data:", error);
-        });
-}
+// Listen for device data changes
+const deviceRef = database.ref('devices/device1');
 
-function loadDashboardStats() {
-    // Load device count
-    db.collection('devices').get()
-        .then(snapshot => {
-            totalDevices.textContent = snapshot.size;
-            
-            // Count active devices (last active within 24 hours)
-            const activeCount = Array.from(snapshot.docs).filter(doc => {
-                const lastActive = doc.data().lastActive?.toDate();
-                return lastActive && (new Date() - lastActive) < 86400000; // 24 hours
-            }).length;
-            
-            activeDevices.textContent = activeCount;
-        });
-    
-    // Load pending commands count
-    db.collection('commands')
-        .where('status', '==', 'pending')
-        .get()
-        .then(snapshot => {
-            pendingCommands.textContent = snapshot.size;
-        });
-    
-    // Load security alerts count
-    db.collection('alerts')
-        .where('resolved', '==', false)
-        .get()
-        .then(snapshot => {
-            securityAlerts.textContent = snapshot.size;
-        });
-}
+deviceRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+        updateDashboard(data);
+    }
+});
 
-function setupEventListeners() {
-    // Logout
-    logoutLink.addEventListener('click', e => {
-        e.preventDefault();
-        auth.signOut()
-            .then(() => {
-                window.location.href = 'login.html';
-            })
-            .catch(error => {
-                console.error("Logout error:", error);
-                alert("Logout failed. Please try again.");
-            });
-    });
-    
-    // Refresh button
-    refreshBtn.addEventListener('click', () => {
-        loadDashboardStats();
-        loadDevices();
-    });
-    
-    // Command type dropdown
-    const commandType = document.getElementById('commandType');
-    if (commandType) {
-        commandType.addEventListener('change', e => {
-            document.getElementById('passwordField').style.display = 
-                e.target.value === 'reset_password' ? 'block' : 'none';
-            document.getElementById('customCommandField').style.display = 
-                e.target.value === 'custom_command' ? 'block' : 'none';
+function updateDashboard(data) {
+    // Update location
+    if (data.location) {
+        map.flyTo({
+            center: [data.location.longitude, data.location.latitude],
+            zoom: 12
         });
+        
+        new mapboxgl.Marker()
+            .setLngLat([data.location.longitude, data.location.latitude])
+            .addTo(map);
+            
+        document.getElementById('locationInfo').innerHTML = `
+            <p>Latitude: ${data.location.latitude}</p>
+            <p>Longitude: ${data.location.longitude}</p>
+            <p>Last Updated: ${new Date(data.timestamp).toLocaleString()}</p>
+        `;
     }
     
-    // Command target dropdown
-    const commandTarget = document.getElementById('commandTarget');
-    if (commandTarget) {
-        commandTarget.addEventListener('change', e => {
-            document.getElementById('deviceGroupField').style.display = 
-                e.target.value === 'group' ? 'block' : 'none';
-        });
+    // Update device info
+    if (data.deviceInfo) {
+        document.getElementById('deviceInfo').innerHTML = `
+            <p>Device: ${data.deviceInfo.model || 'Unknown'}</p>
+            <p>OS: Android ${data.deviceInfo.version || 'Unknown'}</p>
+            <p>Battery: ${data.deviceInfo.battery || 'Unknown'}%</p>
+        `;
     }
 }
 
-// Export for other modules
-export { auth, db, functions };
+// Action buttons
+document.getElementById('lockDeviceBtn').addEventListener('click', () => {
+    database.ref('commands/device1').set({
+        command: 'lock_device',
+        timestamp: Date.now()
+    });
+    alert('Lock request sent to device');
+});
+
+document.getElementById('getScreenshotBtn').addEventListener('click', () => {
+    database.ref('commands/device1').set({
+        command: 'request_screenshot',
+        timestamp: Date.now()
+    });
+    alert('Screenshot request sent to device');
+});
