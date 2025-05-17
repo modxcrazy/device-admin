@@ -1,290 +1,205 @@
-import { db } from './dashboard.js';
-
-// DOM Elements
-const devicesTableBody = document.getElementById('devicesTableBody');
-const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
-const deviceDetailsModal = new bootstrap.Modal(document.getElementById('deviceDetailsModal'));
-
-// Device data cache
-let devicesCache = [];
-let currentPage = 1;
-const devicesPerPage = 10;
-
-// Initialize devices module
-export function initDevices() {
-    loadDevices();
-    setupEventListeners();
-}
-
-function loadDevices() {
-    devicesTableBody.innerHTML = `
-        <tr>
-            <td colspan="6" class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-            </td>
-        </tr>`;
+document.addEventListener('DOMContentLoaded', function() {
+    const devicesRef = database.ref('devices');
+    const devicesTableBody = document.getElementById('devicesTableBody');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const deviceModal = document.getElementById('deviceModal');
+    const closeModal = document.querySelector('.close-modal');
     
-    db.collection('devices').get()
-        .then(snapshot => {
-            devicesCache = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+    let currentPage = 1;
+    const devicesPerPage = 10;
+    let allDevices = [];
+    
+    // Load devices
+    function loadDevices() {
+        devicesRef.once('value').then((snapshot) => {
+            allDevices = [];
+            devicesTableBody.innerHTML = '';
             
-            renderDevicesTable();
-            setupPagination();
-        })
-        .catch(error => {
-            console.error("Error loading devices:", error);
-            devicesTableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-danger">
-                        Failed to load devices. Please try again.
-                    </td>
-                </tr>`;
-        });
-}
-
-function renderDevicesTable(filteredDevices = null) {
-    const devicesToRender = filteredDevices || devicesCache;
-    const startIndex = (currentPage - 1) * devicesPerPage;
-    const endIndex = startIndex + devicesPerPage;
-    const paginatedDevices = devicesToRender.slice(startIndex, endIndex);
-    
-    if (paginatedDevices.length === 0) {
-        devicesTableBody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center text-muted">
-                    No devices found
-                </td>
-            </tr>`;
-        return;
-    }
-    
-    devicesTableBody.innerHTML = paginatedDevices.map(device => `
-        <tr data-device-id="${device.id}">
-            <td>${device.id.substring(0, 8)}...</td>
-            <td>${device.deviceName || 'Unnamed Device'}</td>
-            <td>
-                <span class="badge badge-status ${getStatusClass(device.lastActive)}">
-                    ${getStatusText(device.lastActive)}
-                </span>
-            </td>
-            <td>${formatDate(device.lastActive)}</td>
-            <td>
-                <i class="bi ${device.adminActive ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i>
-            </td>
-            <td>
-                <button class="btn btn-sm btn-outline-primary view-details">
-                    <i class="bi bi-eye"></i> View
-                </button>
-                <button class="btn btn-sm btn-outline-secondary send-command">
-                    <i class="bi bi-send"></i> Command
-                </button>
-            </td>
-        </tr>
-    `).join('');
-    
-    // Add event listeners to buttons
-    document.querySelectorAll('.view-details').forEach(btn => {
-        btn.addEventListener('click', e => {
-            const deviceId = e.target.closest('tr').getAttribute('data-device-id');
-            showDeviceDetails(deviceId);
-        });
-    });
-    
-    document.querySelectorAll('.send-command').forEach(btn => {
-        btn.addEventListener('click', e => {
-            const deviceId = e.target.closest('tr').getAttribute('data-device-id');
-            // Implement command sending logic
-        });
-    });
-}
-
-function setupPagination() {
-    const totalPages = Math.ceil(devicesCache.length / devicesPerPage);
-    const pagination = document.getElementById('pagination');
-    
-    pagination.innerHTML = '';
-    
-    if (totalPages <= 1) return;
-    
-    // Previous button
-    pagination.innerHTML += `
-        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>
-        </li>`;
-    
-    // Page numbers
-    for (let i = 1; i <= totalPages; i++) {
-        pagination.innerHTML += `
-            <li class="page-item ${i === currentPage ? 'active' : ''}">
-                <a class="page-link" href="#" data-page="${i}">${i}</a>
-            </li>`;
-    }
-    
-    // Next button
-    pagination.innerHTML += `
-        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-            <a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>
-        </li>`;
-    
-    // Add event listeners
-    document.querySelectorAll('.page-link').forEach(link => {
-        link.addEventListener('click', e => {
-            e.preventDefault();
-            currentPage = parseInt(e.target.getAttribute('data-page'));
-            renderDevicesTable();
-        });
-    });
-}
-
-function showDeviceDetails(deviceId) {
-    const device = devicesCache.find(d => d.id === deviceId);
-    if (!device) return;
-    
-    // Basic info
-    document.getElementById('basicInfoTable').innerHTML = `
-        <tr>
-            <th>Device ID</th>
-            <td>${device.id}</td>
-        </tr>
-        <tr>
-            <th>Device Name</th>
-            <td>${device.deviceName || 'Not specified'}</td>
-        </tr>
-        <tr>
-            <th>Model</th>
-            <td>${device.deviceModel || 'Unknown'}</td>
-        </tr>
-        <tr>
-            <th>OS Version</th>
-            <td>${device.osVersion || 'Unknown'}</td>
-        </tr>
-        <tr>
-            <th>Last Active</th>
-            <td>${formatDate(device.lastActive)}</td>
-        </tr>
-    `;
-    
-    // Security status
-    document.getElementById('securityStatusTable').innerHTML = `
-        <tr>
-            <th>Admin Active</th>
-            <td>
-                <i class="bi ${device.adminActive ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i>
-                ${device.adminActive ? 'Yes' : 'No'}
-            </td>
-        </tr>
-        <tr>
-            <th>Camera Status</th>
-            <td>
-                <i class="bi ${device.cameraDisabled ? 'bi-camera-off text-danger' : 'bi-camera text-success'}"></i>
-                ${device.cameraDisabled ? 'Disabled' : 'Enabled'}
-            </td>
-        </tr>
-        <tr>
-            <th>Password Set</th>
-            <td>
-                <i class="bi ${device.passwordSet ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'}"></i>
-                ${device.passwordSet ? 'Yes' : 'No'}
-            </td>
-        </tr>
-    `;
-    
-    // Recent commands
-    loadDeviceCommands(deviceId);
-    
-    // Show modal
-    deviceDetailsModal.show();
-}
-
-function loadDeviceCommands(deviceId) {
-    const tableBody = document.getElementById('recentCommandsTable');
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="3" class="text-center">
-                <div class="spinner-border spinner-border-sm" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-            </td>
-        </tr>`;
-    
-    db.collection('commands')
-        .where('deviceId', '==', deviceId)
-        .orderBy('timestamp', 'desc')
-        .limit(5)
-        .get()
-        .then(snapshot => {
-            if (snapshot.empty) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="3" class="text-center text-muted">
-                            No commands found
-                        </td>
-                    </tr>`;
-                return;
+            const devices = snapshot.val();
+            if (devices) {
+                Object.keys(devices).forEach(deviceId => {
+                    allDevices.push({
+                        id: deviceId,
+                        ...devices[deviceId]
+                    });
+                });
+                
+                renderDevicesTable();
+                updatePagination();
             }
-            
-            tableBody.innerHTML = snapshot.docs.map(doc => {
-                const cmd = doc.data();
-                return `
-                    <tr>
-                        <td>${formatTime(cmd.timestamp.toDate())}</td>
-                        <td>${cmd.command}</td>
-                        <td>
-                            <span class="badge ${getCommandStatusClass(cmd.status)}">
-                                ${cmd.status}
-                            </span>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        })
-        .catch(error => {
-            console.error("Error loading commands:", error);
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="3" class="text-center text-danger">
-                        Failed to load commands
-                    </td>
-                </tr>`;
         });
-}
-
-// Helper functions
-function getStatusClass(lastActive) {
-    if (!lastActive) return 'badge-inactive';
-    const hoursAgo = (new Date() - lastActive.toDate()) / (1000 * 60 * 60);
-    return hoursAgo < 24 ? 'badge-active' : hoursAgo < 72 ? 'badge-pending' : 'badge-inactive';
-}
-
-function getStatusText(lastActive) {
-    if (!lastActive) return 'Inactive';
-    const hoursAgo = (new Date() - lastActive.toDate()) / (1000 * 60 * 60);
-    return hoursAgo < 24 ? 'Active' : hoursAgo < 72 ? 'Inactive' : 'Offline';
-}
-
-function formatDate(timestamp) {
-    if (!timestamp) return 'Never';
-    return timestamp.toDate().toLocaleString();
-}
-
-function formatTime(date) {
-    return date.toLocaleTimeString();
-}
-
-function getCommandStatusClass(status) {
-    switch (status.toLowerCase()) {
-        case 'completed': return 'bg-success';
-        case 'failed': return 'bg-danger';
-        case 'pending': return 'bg-warning';
-        default: return 'bg-secondary';
     }
-}
-
-// Initialize devices module when DOM is loaded
-document.addEventListener('DOMContentLoaded', initDevices);
+    
+    // Render devices table
+    function renderDevicesTable() {
+        devicesTableBody.innerHTML = '';
+        
+        const startIndex = (currentPage - 1) * devicesPerPage;
+        const endIndex = Math.min(startIndex + devicesPerPage, allDevices.length);
+        
+        for (let i = startIndex; i < endIndex; i++) {
+            const device = allDevices[i];
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td><input type="checkbox" class="device-checkbox" data-id="${device.id}"></td>
+                <td>${device.id}</td>
+                <td>${device.userName || 'Unknown'}</td>
+                <td><span class="status-badge status-${device.status || 'inactive'}">${device.status || 'inactive'}</span></td>
+                <td>${device.lastActive ? new Date(device.lastActive).toLocaleString() : 'Never'}</td>
+                <td>${device.location ? `${device.location.latitude}, ${device.location.longitude}` : 'Unknown'}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary view-device" data-id="${device.id}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            `;
+            
+            devicesTableBody.appendChild(row);
+        }
+        
+        // Add event listeners to view buttons
+        document.querySelectorAll('.view-device').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const deviceId = this.getAttribute('data-id');
+                showDeviceDetails(deviceId);
+            });
+        });
+    }
+    
+    // Show device details modal
+    function showDeviceDetails(deviceId) {
+        const device = allDevices.find(d => d.id === deviceId);
+        if (!device) return;
+        
+        document.getElementById('modalDeviceId').textContent = `Device: ${deviceId}`;
+        
+        let detailsHtml = `
+            <div class="detail-row">
+                <strong>User:</strong> ${device.userName || 'Unknown'}
+            </div>
+            <div class="detail-row">
+                <strong>Status:</strong> <span class="status-badge status-${device.status || 'inactive'}">${device.status || 'inactive'}</span>
+            </div>
+            <div class="detail-row">
+                <strong>Last Active:</strong> ${device.lastActive ? new Date(device.lastActive).toLocaleString() : 'Never'}
+            </div>
+            <div class="detail-row">
+                <strong>Location:</strong> ${device.location ? `${device.location.latitude}, ${device.location.longitude}` : 'Unknown'}
+            </div>
+            <div class="detail-row">
+                <strong>Device Model:</strong> ${device.deviceInfo?.model || 'Unknown'}
+            </div>
+            <div class="detail-row">
+                <strong>OS Version:</strong> ${device.deviceInfo?.version || 'Unknown'}
+            </div>
+            <div class="detail-row">
+                <strong>Battery Level:</strong> ${device.deviceInfo?.battery ? `${device.deviceInfo.battery}%` : 'Unknown'}
+            </div>
+        `;
+        
+        document.getElementById('modalDeviceContent').innerHTML = detailsHtml;
+        deviceModal.style.display = 'flex';
+    }
+    
+    // Update pagination
+    function updatePagination() {
+        const totalPages = Math.ceil(allDevices.length / devicesPerPage);
+        document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+        
+        document.getElementById('prevPage').disabled = currentPage === 1;
+        document.getElementById('nextPage').disabled = currentPage === totalPages;
+    }
+    
+    // Event listeners
+    selectAllCheckbox.addEventListener('change', function() {
+        const checkboxes = document.querySelectorAll('.device-checkbox');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    document.getElementById('prevPage').addEventListener('click', function() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderDevicesTable();
+            updatePagination();
+        }
+    });
+    
+    document.getElementById('nextPage').addEventListener('click', function() {
+        const totalPages = Math.ceil(allDevices.length / devicesPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderDevicesTable();
+            updatePagination();
+        }
+    });
+    
+    document.getElementById('refreshDevices').addEventListener('click', loadDevices);
+    
+    document.getElementById('lockSelected').addEventListener('click', function() {
+        const selectedDevices = getSelectedDevices();
+        if (selectedDevices.length === 0) return;
+        
+        selectedDevices.forEach(deviceId => {
+            database.ref(`devices/${deviceId}/status`).set('locked');
+            logActivity(deviceId, 'Device locked', 'lock');
+        });
+        
+        alert(`${selectedDevices.length} device(s) locked successfully`);
+    });
+    
+    document.getElementById('unlockSelected').addEventListener('click', function() {
+        const selectedDevices = getSelectedDevices();
+        if (selectedDevices.length === 0) return;
+        
+        selectedDevices.forEach(deviceId => {
+            database.ref(`devices/${deviceId}/status`).set('active');
+            logActivity(deviceId, 'Device unlocked', 'unlock');
+        });
+        
+        alert(`${selectedDevices.length} device(s) unlocked successfully`);
+    });
+    
+    document.getElementById('deactivateSelected').addEventListener('click', function() {
+        const selectedDevices = getSelectedDevices();
+        if (selectedDevices.length === 0) return;
+        
+        selectedDevices.forEach(deviceId => {
+            database.ref(`devices/${deviceId}/status`).set('inactive');
+            logActivity(deviceId, 'Device deactivated', 'power-off');
+        });
+        
+        alert(`${selectedDevices.length} device(s) deactivated successfully`);
+    });
+    
+    closeModal.addEventListener('click', function() {
+        deviceModal.style.display = 'none';
+    });
+    
+    window.addEventListener('click', function(event) {
+        if (event.target === deviceModal) {
+            deviceModal.style.display = 'none';
+        }
+    });
+    
+    // Helper functions
+    function getSelectedDevices() {
+        const checkboxes = document.querySelectorAll('.device-checkbox:checked');
+        return Array.from(checkboxes).map(checkbox => checkbox.getAttribute('data-id'));
+    }
+    
+    function logActivity(deviceId, title, type) {
+        const activityRef = database.ref('activities').push();
+        activityRef.set({
+            deviceId,
+            title,
+            type,
+            timestamp: new Date().toLocaleString()
+        });
+    }
+    
+    // Initial load
+    loadDevices();
+});
