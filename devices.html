@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Management | Device Monitor</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar (same as index.html) -->
+        <!-- ... -->
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header>
+                <h1>Device Management</h1>
+                <div class="search-bar">
+                    <input type="text" placeholder="Search devices..." id="deviceSearch">
+                    <button><i class="fas fa-search"></i></button>
+                </div>
+            </header>
+
+            <!-- Device Control Panel -->
+            <div class="control-panel">
+                <button class="btn btn-primary" id="refreshDevices">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button class="btn btn-danger" id="lockSelected">
+                    <i class="fas fa-lock"></i> Lock Selected
+                </button>
+                <button class="btn btn-success" id="unlockSelected">
+                    <i class="fas fa-unlock"></i> Unlock Selected
+                </button>
+                <button class="btn btn-warning" id="deactivateSelected">
+                    <i class="fas fa-power-off"></i> Deactivate
+                </button>
+            </div>
+
+            <!-- Devices Table -->
+            <div class="devices-table-container">
+                <table class="devices-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>Device ID</th>
+                            <th>User</th>
+                            <th>Status</th>
+                            <th>Last Active</th>
+                            <th>Location</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devicesTableBody">
+                        <!-- Devices will be added dynamically -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination">
+                <button id="prevPage"><i class="fas fa-chevron-left"></i></button>
+                <span id="pageInfo">Page 1 of 1</span>
+                <button id="nextPage"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Detail Modal -->
+    <div class="modal" id="deviceModal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2 id="modalDeviceId">Device Details</h2>
+            <div class="modal-body" id="modalDeviceContent">
+                <!-- Device details will be loaded here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="sendMessageBtn">
+                    <i class="fas fa-comment"></i> Send Message
+                </button>
+                <button class="btn btn-danger" id="remoteWipeBtn">
+                    <i class="fas fa-eraser"></i> Remote Wipe
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/firebase.js"></script>
+    <script src="js/devices.js"></script>
+</body>
+</html>
